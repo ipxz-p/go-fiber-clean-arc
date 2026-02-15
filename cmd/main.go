@@ -5,14 +5,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ipxz-p/go-fiber-clean-arc/internal/handler"
+	"github.com/ipxz-p/go-fiber-clean-arc/internal/di"
 	mw "github.com/ipxz-p/go-fiber-clean-arc/internal/middleware"
-	"github.com/ipxz-p/go-fiber-clean-arc/internal/repository"
-	"github.com/ipxz-p/go-fiber-clean-arc/internal/usecase"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/config"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/database"
-	"github.com/ipxz-p/go-fiber-clean-arc/pkg/token"
-	"github.com/ipxz-p/go-fiber-clean-arc/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -37,17 +33,7 @@ func main() {
 	}
 	slog.Info("connected to database")
 
-	jwtManager := token.NewJWTManager(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.JWTAccessExpiryMinutes, cfg.JWTRefreshExpiryDays)
-
-	userRepo := repository.NewUserRepository(db)
-	tokenRepo := repository.NewTokenRepository(db)
-
-	userUsecase := usecase.NewUserUsecase(userRepo)
-	authUsecase := usecase.NewAuthUsecase(userRepo, tokenRepo, jwtManager)
-
-	validate := validator.New()
-	userHandler := handler.NewUserHandler(userUsecase, validate)
-	authHandler := handler.NewAuthHandler(authUsecase, validate)
+	container := di.NewContainer(db, cfg)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: mw.ErrorHandler,
@@ -64,11 +50,11 @@ func main() {
 	api := app.Group("/api/v1")
 
 	auth := api.Group("/auth")
-	auth.Post("/register", userHandler.Register)
-	auth.Post("/login", authHandler.Login)
-	auth.Post("/refresh", authHandler.RefreshToken)
+	auth.Post("/register", container.UserHandler.Register)
+	auth.Post("/login", container.AuthHandler.Login)
+	auth.Post("/refresh", container.AuthHandler.RefreshToken)
 
-	auth.Post("/logout", mw.JWTAuth(jwtManager), authHandler.Logout)
+	auth.Post("/logout", mw.JWTAuth(container.JWTManager), container.AuthHandler.Logout)
 
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	slog.Info("server starting", "port", cfg.AppPort)
