@@ -5,13 +5,13 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ipxz-p/go-fiber-clean-arc/internal/entity"
 	"github.com/ipxz-p/go-fiber-clean-arc/internal/handler"
 	mw "github.com/ipxz-p/go-fiber-clean-arc/internal/middleware"
 	"github.com/ipxz-p/go-fiber-clean-arc/internal/repository"
 	"github.com/ipxz-p/go-fiber-clean-arc/internal/usecase"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/config"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/database"
+	"github.com/ipxz-p/go-fiber-clean-arc/pkg/token"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,10 +37,17 @@ func main() {
 	}
 	slog.Info("connected to PostgreSQL")
 
+	jwtManager := token.NewJWTManager(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.JWTAccessExpiryMinutes, cfg.JWTRefreshExpiryDays)
+
 	userRepo := repository.NewUserRepository(db)
+	tokenRepo := repository.NewTokenRepository(db)
+
 	userUsecase := usecase.NewUserUsecase(userRepo)
+	authUsecase := usecase.NewAuthUsecase(userRepo, tokenRepo, jwtManager)
+
 	validate := validator.New()
 	userHandler := handler.NewUserHandler(userUsecase, validate)
+	authHandler := handler.NewAuthHandler(authUsecase, validate)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: mw.ErrorHandler,
@@ -48,12 +55,20 @@ func main() {
 	})
 
 	app.Use(recover.New())
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:3000,http://localhost:5173",
+		AllowCredentials: true,
+	}))
 	app.Use(mw.RequestLogger())
 
 	api := app.Group("/api/v1")
+
 	auth := api.Group("/auth")
 	auth.Post("/register", userHandler.Register)
+	auth.Post("/login", authHandler.Login)
+	auth.Post("/refresh", authHandler.RefreshToken)
+
+	auth.Post("/logout", mw.JWTAuth(jwtManager), authHandler.Logout)
 
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	slog.Info("server starting", "port", cfg.AppPort)

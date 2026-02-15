@@ -12,6 +12,7 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, user *entity.User) error
+	GetByID(ctx context.Context, id int64) (*entity.User, error)
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetByUsername(ctx context.Context, username string) (*entity.User, error)
 }
@@ -30,6 +31,18 @@ func (r *userRepository) Create(ctx context.Context, user *entity.User) error {
 		return result.Error
 	}
 	return nil
+}
+
+func (r *userRepository) GetByID(ctx context.Context, id int64) (*entity.User, error) {
+	var user entity.User
+	result := r.db.WithContext(ctx).First(&user, id)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to get user by id")
+	}
+	return &user, nil
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
