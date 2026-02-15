@@ -28,7 +28,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 func (r *userRepository) Create(ctx context.Context, user *entity.User) error {
 	result := r.db.WithContext(ctx).Create(user)
 	if result.Error != nil {
-		return result.Error
+		return apperror.Wrap(result.Error, http.StatusInternalServerError, "failed to create user")
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int64) (*entity.User, e
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, apperror.New(http.StatusInternalServerError, "failed to get user by id")
+		return nil, apperror.Wrap(result.Error, http.StatusInternalServerError, "failed to get user by id")
 	}
 	return &user, nil
 }
@@ -52,7 +52,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entity.
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, apperror.New(http.StatusInternalServerError, "failed to get user by email")
+		return nil, apperror.Wrap(result.Error, http.StatusInternalServerError, "failed to get user by email")
 	}
 	return &user, nil
 }
@@ -64,7 +64,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*e
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, apperror.New(http.StatusInternalServerError, "failed to get user by username")
+		return nil, apperror.Wrap(result.Error, http.StatusInternalServerError, "failed to get user by username")
 	}
 	return &user, nil
 }

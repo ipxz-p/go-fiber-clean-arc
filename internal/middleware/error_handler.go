@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 
+	sentryfiber "github.com/getsentry/sentry-go/fiber"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/apperror"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/response"
 
@@ -29,6 +30,12 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		"status", code,
 		"error", err,
 	)
+
+	if code >= fiber.StatusInternalServerError {
+		if hub := sentryfiber.GetHubFromContext(c); hub != nil {
+			hub.CaptureException(err)
+		}
+	}
 
 	return response.Error(c, code, message)
 }

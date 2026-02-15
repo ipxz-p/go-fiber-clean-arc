@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/ipxz-p/go-fiber-clean-arc/internal/di"
 	mw "github.com/ipxz-p/go-fiber-clean-arc/internal/middleware"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/config"
 	"github.com/ipxz-p/go-fiber-clean-arc/pkg/database"
 
+	"github.com/getsentry/sentry-go"
+	sentryfiber "github.com/getsentry/sentry-go/fiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -26,6 +29,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := sentry.Init(sentry.ClientOptions{
+		Dsn:              cfg.SentryDSN,
+		EnableTracing:    true,
+		TracesSampleRate: 1.0,
+		SendDefaultPII:   true,
+	}); err != nil {
+		slog.Error("failed to initialize sentry", "error", err)
+		os.Exit(1)
+	}
+	defer sentry.Flush(2 * time.Second)
+	slog.Info("sentry initialized")
+
 	db, err := database.NewDatabase(cfg.DSN())
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
@@ -41,6 +56,11 @@ func main() {
 	})
 
 	app.Use(recover.New())
+	app.Use(sentryfiber.New(sentryfiber.Options{
+		Repanic:         true,
+		WaitForDelivery: false,
+		Timeout:         5 * time.Second,
+	}))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:3000,http://localhost:5173",
 		AllowCredentials: true,

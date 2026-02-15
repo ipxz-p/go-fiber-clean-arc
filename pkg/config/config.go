@@ -20,6 +20,8 @@ type Config struct {
 	JWTRefreshSecret       string
 	JWTAccessExpiryMinutes int
 	JWTRefreshExpiryDays   int
+
+	SentryDSN string
 }
 
 func Load() (*Config, error) {
@@ -37,6 +39,8 @@ func Load() (*Config, error) {
 		JWTRefreshSecret:       getEnv("JWT_REFRESH_SECRET", ""),
 		JWTAccessExpiryMinutes: getEnvInt("JWT_ACCESS_EXPIRY_MINUTES", 15),
 		JWTRefreshExpiryDays:   getEnvInt("JWT_REFRESH_EXPIRY_DAYS", 7),
+
+		SentryDSN: getEnv("SENTRY_DSN", ""),
 	}
 
 	if config.DBHost == "" || config.DBName == "" {
