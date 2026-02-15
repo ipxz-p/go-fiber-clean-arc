@@ -30,12 +30,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := database.NewPostgresDB(cfg.DSN())
+	db, err := database.NewDatabase(cfg.DSN())
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("connected to PostgreSQL")
+	slog.Info("connected to database")
 
 	jwtManager := token.NewJWTManager(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.JWTAccessExpiryMinutes, cfg.JWTRefreshExpiryDays)
 
